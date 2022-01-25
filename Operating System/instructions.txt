@@ -1,0 +1,26 @@
+// BCC to generate a binary executable without header and dump it in the beginning 
+// of the floppy drive
+
+as86 -o bs.o bs.s #assemble bs.s into bs.o
+bcc -c -ansi bc.c # compile bc.c into bc.o
+
+// link bs.o and bc.o into a binary executable without header 
+
+ld86 -d -o booter bs.o bc.o /usr/lib/bcc/libc.a
+
+#duump booter to sector 0 of a FD 
+
+dd if=booter of=/dev/fd0/ bs=512 count=1 conv=notrunc
+
+if the target is simply an image file instead of a device simply 
+ replace /dev/fd0/ with the image file name 
+
+
+ ///////////////INSTEAD OF INDIVIDUAL COMMANDS WE CAN REPLACETHEM WITH A SH SCRIPT
+
+# usage: mk filename 
+
+as86 -0 bs.o bs.s 
+bcc -c -ansi $1.c 
+ld86 -d -o  $1.o /user/lib/bcc/libc.a
+dd if=$1 of=$IMAGE bs=512 count=1 conv=notrunc

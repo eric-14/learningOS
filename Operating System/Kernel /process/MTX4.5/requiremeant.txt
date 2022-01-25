@@ -1,0 +1,11 @@
+Editors 
+virtual machine
+The BCC compiler-linker package 
+Archive utility ar for creating and maintaining link library
+
+Use Makefile or a mk script to 
+compile-link the source files into an MTX kernel image
+
+.QEMU : qemu -fda mtximage -no-fd-bootchk
+.DOSEMU : configure DOSEMU to use mtximage as virtual FD
+.VMware : configure VM to boot from mtximage as virtual FD

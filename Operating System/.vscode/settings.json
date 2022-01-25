@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "BOOT-EXT4-PARTITIONS.C": "cpp",
+        "PIPES.C": "cpp",
+        "INIT.C": "cpp"
+    }
+}

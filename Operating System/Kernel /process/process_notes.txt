@@ -1,0 +1,79 @@
+Fork() creates a child processs with an Umode image identical to that of the parent.
+if fork() succeeds the parent return  the child's pid and the child return 0.
+
+IN RMTX fork() is implemented as follows:
+    Fork() calls fork1 to create a child process ready to run in KMode. The child PROC inherits all the open file descriptors of the parent but withou an Umode image.
+
+    The child PROC is assigned the base priorityof 127 and its resume point is set to _goUmode, so that when the child is scheduled to run, it return to Umode immediately.
+
+    fork() allocates a Umode image area for the child of the same size as the parent and copies the parent's Umode stack to child's segment. 
+    It the changes the copied DS, ES, and CS in the child's segements, and sets the child's saved uss to its own data + stack segment.
+    
+    The child's saved usp is identical to that if the parent since it's the same offset relative to the saved uss Segment.
+    
+    Then it changes the the saved AX register in the child's Umode stack frame to 0.
+
+    Finally it returns the child's pid. When the child runs, it returns to its Umode image with a 0.
+
+    Because of the image copying, the child's Umode image is identical to that of the parent.
+
+    VFORK()
+
+    After forking a child, the parent usually waits for the child to terminate and the child immediately does exec(). 
+    In shuch cases, copying image in fork() would be a waste.
+
+    VFORK is implemented as follows:
+        create a child process which shares the same image of the parent. vfork() first calls fork1() to create a child process ready to run in Kmode.
+        When fork1() returns, vfork() does not allocate a Umode image for the child but lets it share the same Umode image with the parent.
+        i.e let the child PROC.uss be the same as that of the parent.
+
+        In the Ustack area of the parent, create an interrupt stack frame for the child to return pid =vfork() in Umode with a 0.
+        This is done by copying parent's interrupt stack frame to a low address area,e.g. at parent's saved usp - 1KB and set the child's saved usp point to that area,
+        as if the child had done a vfork() syscall by itself.
+
+        When either process returns to Umode, it would run in the same image of the parent.
+        In an OS with memory protection hardware, the shared image can be marked as read-only.
+        If either process tries tp write to the shared image, the image is split into individual images. Since RMTX in real mode does not have any mechanism for memory protection,
+        we must assume that, after vfork() , both the parent and child execute in read-only mode; either the parent executes wait() or the child executes exec() immediately.
+
+        In kexec(), a vforked child process creates a new Umode image but does not destroy the shared parent Image.
+
+        in order to ensure that the chold runs first, vfork() sets the child's priority to the maximum value 256.
+        When the parent exits Kmode, it will switch process, allowing the child to return to Umode first.
+
+        Loader.cThis file implements the Umode image loade, which loads an executablefile to a segment.
+        The load() function uses the internal open() of the file system to open the file for read. It first calls header() function, which reads the file header to determine the file's tsize, dsize, and bss size.
+        Then it loads the file's code+data sections to the specified segment and clears the bss section to 0.
+        The header() is also used in kexec() to calculate the total memory size needed by a new image.
+
+        exec.c  This file implements the kexec() syscall. Unlike exec() in other OS the parameter to kexec() is the entire command line of the form "cmd argv1 argv2.. argvn".
+        kexec() uses the first token, cmd, to create the new image, nut it passes the entire command line to the new image.
+        Parsing the command line to argc and argv is done in the new image in user mode. as of now, MTX does not support the PATH environment variable.
+        All the executable commands are assumed to be in the /bin directory or separate I&D spaces.
+
+        When vforked process calls kexec(), it only creates a new image without releasinf the (shared) old image.
+
+        In addition, kexec() also checks the process thread count. A process may exec() only if its tcount=1 .i.e when there are no active threads in the process. 
+
+        kexec() clears the process signal handlers to default.
+
+        MTX does not support close on exec() file descriptors. All opened files must remain open after exec(). 
+        If needed, the reader may add this and other features to the kexec() function.
+
+        mem.c This file implements the RMTX kernel memory manager. The kernel image is a binary executable with separete I&D spaces. 
+        when RMTX boots up the kernel image is loaded at the segment 0x1000,
+
+        the memory manager consist of the following components:
+
+        freeMem
+        kmalloc: allocate space fir process Umode image size.
+        kmfree(segment,size): deallocate memory 
+        sbrk()/rbrk(): increase/ decrease heap size of process Umode image.
+
+        Free memory areas are managed as variable-sized partitions by the first-fit algorithm.
+
+        Kmalloc() is non-blocking instead of waiting for free memory to become available it prints out "out of memory" message and returns 0 if there is not enough free memory for the requested size.
+
+        Currently RMTX does not implement memory compaction and user mode image swapping
+THREADS 
+        Programs such as matrix, race, norace and qsort, are used to demonstrate the thread capability of RMTX. 

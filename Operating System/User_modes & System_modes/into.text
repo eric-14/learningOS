@@ -1,0 +1,54 @@
+A process in Umode to execute in Kmode it is essentially executing the function in that address but using its own unique params
+thus it should change all its segment registers to point to the kernel function but the stack of the Kfunction should point to the stack of the 
+Umode process....since the params are stored there😊😊😊😊😊😊😊😊😊
+
+A process in Umode may enter Kmode if one of the following events ocuurs:
+    ---->Exceptions: traps , illegal instruction, invalid address
+    ---->Interrupts : timer interrupts, device I/O completion 
+    -----> System calls: INT n 
+
+System calls    
+----->involve the CPU operating in different modes and executing in different address spaces
+
+system calls     
+    --->Push the uflag, uCS, uPC into the stack 
+    --->Load (PC,CS)
+    --->Handler: continue execution from the loaded
+
+Thus, when CPU first enters the int80h() handler function, the stack is still the process ustack in the uSS segement
+It contains the saved uFlag, uCS , uPC at the top, where uPC points at the address of returnHERER in _sysycall
+
+
+The function IRET pops 3 items off the current stack into CPU'S->>>>>>>> PC,CS Flag registers in that order
+it is used by the interrupt handler to return the original poing of interruption
+
+LOAD: each interrupt vector constinas a PC,CS which points to the entry point of the interrupt handler
+        after saving the uFLAG ,uCS, uPC of the interrupted point, the CPU turns off the T(trace) and I (Interrupt Mask)
+        bits in the fag register to disable trace trap and mask out interrupts. 
+        Then it loads(PC,CS) with the contents of interrupt vector 80 as the new execution point.
+        The interrupt vector 80 area must be initialized before executing INT 80
+
+
+The system call must validate all its input to prevent over-flows, invalid parameters
+thta may cause the krenel to crush
+
+FORK-EXEC IN UNIX/LINUX
+
+unix/linux allows the creation of child processes that have the same image as parent processes
+
+Upon return from fork() the child process usually uses the system call 
+        int r = exec(char *filename);
+
+to change image to that of a different program and return to Umode to execute the new image
+This allows a process to execute different programs 
+
+The exec func usually takes more parameters than the filename known as COMMAND LINE PARAMETERS 
+and are passed to the new image when execution starts
+
+FORK-EXEC ------> may be called the bread and butter of Unix since each operation depends on them
+
+There is the IBM MVS operating system, the system call create(filename) creates a child process to execute filename in one step, and attach(filename)
+allows a process to execute a new file without destroying the original execution image. Variations to the fork-exec paradigm are listed  
+
+
+

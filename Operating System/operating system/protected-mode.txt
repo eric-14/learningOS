@@ -1,0 +1,289 @@
+memory management consists of address translation and memory protection. 
+
+A x86 CPU in protected mode had 6 segment registers denoted by cs,ds,ss.es.fs and gs.
+Each segment register is 16bits but its content isno longer a base address as in real mode.
+
+Instead. it specifies the index of a segment descriptor in a descriptor table. 
+Each segment descriptor contains the base address and size limit pf the intended segment. 
+The linear address which is also the physical register
+
+SEGEMENT REGISTER 
+    index = 13 bit offset into a descriptor table
+    T =0  means the Global descriptor tab;e 
+    T=1 means the local descriptor table 
+    RPL - is the segment's priviledge level for protection
+
+In protected mode, a logocal address comprises of two parts;
+16-bit segement selctor and a 32-bot offset, which specifies the relative address within the segment.
+
+Given the logical address LA = [segment;offset] the CPU uses the segment selector's T bit to access either the GDT or LDT. 
+
+if T=0 it uses the GDT which is pointed by the CPU'S GDTR register. 
+if T=1, it uses LDT, which is pointed by the CPU'S LDTR register .
+
+A system has only one GDT, which specifies the kernel code and data segments that are common to all processes.
+
+Each process may have its own LDT , which specififes the user mode address space of that process.
+
+The CPU'S GDTR register points to a GDT descriptor containing the address and size of the GDT.
+
+When setting up the GDT and LDT it is convenient to define a few segment descriptor prototypes
+
+In addition to code and data segment descriptors, the GDT may also contaon Task STate Segment Descriptors(TSSD).
+A TSSD refers to a task State Segment which is a data structure used by the CPU to save CPU registers during hardware task switching.
+
+It also specifies the logical address of the stacks for privilege levels 0, 1 and 2.
+
+SEGMENTATION MODELS 
+
+FLAT MODEL - all segments hav base =0 G =1 and limit = 0xFFFFF
+in thiscas, the virtua; address to physical address mapping is one-to-one. 
+A 32-bot virtual address is an pffset from 0, so it's also a physical address.
+
+A special usage of the flat model id for paging. Before enabling the paging hardware, all segments are set to the maximum size so that the linear address range is 4GB. 
+
+PROTECTED DLAT MODEL: segments are mapped to the existing memory by setting the size limit to available physical memory.
+Any attempt to access memory outside the segment limit will generate a protection error.
+
+MULTISTAGE-SEGMENT MODEL: A program may use allthe segment registers to access up to 6 protected segments.
+
+CPU'S address translation and memory protection scheme in segmentation
+
+1. CPU'S GDTR register contains a GDT descriptor = [GDT_LIMIT| GDT_address]
+    The GDT contains 8-byte global segment descripors. Each segment descipots has a 32-bit base address, a 32-bit base address, a size-limit and a 2-bit privilege level.
+
+2. Like the GDT, the LDT also contains 8-byte local segment descriptors. Unlike the GDT, which can be located naywhere in memory, the LDT descriptor must be placed in the GDT and load LDTR with its selector in the GDT. 
+3. A virtual address VA = [16-segment_selector:32-bit offset]
+4. The 13-bit index is used to access a segment descriptor in either the GDT or LDT.
+A program executes at the privilge level(CPL) of its code segment selector.
+When a program uses a selector(RPL) to access data segment descriptor(DPL),the CPU checks privelege by max(CPL,RPL)<= DPL.
+if the intended access passes the privilege checking, the physical address PA - segment_base + offset, which must be within the segment limit. 
+A stack segment is a R|W data segment in which the segment type's E bit is set for expand-down and a PA in a stack segment must be greater than the stack segment limit.
+
+In general, aprogram executes in code segments of the same privilege level.
+It may call procedure in a conforming code segment of higher provolege level but executes at the privilege level of the original program. 
+This feature allows user mode programs to call shared procedures in kernel's conforming code segment's.
+
+A program can only transfer control to a non-conforming code segment of higher privilege level through gates in the interrupt Descriptor Table(IDT)
+
+PAGING 
+in protected mode memory can be managed by paging. in x86 paging is implemented on top of segmentation to a linear address.
+A logical address is first mapped by segmentation to a linear address. 
+If paging is not enabled, the linear address is also the physical address. 
+if paging is enal=bled, the linear address if further mapped by the CPU's paging hardware to the physical address.
+
+In x86 CPU, there is no way to disable segmentation but we can get around it. 
+When using paging we first set up flat segment model in which all segments are 4GB in size.This makes the linear address range from 0 to 4 GB, which effectively hides the segmentationlayer, making it transparent. 
+ Then we set up page tables and turn on paging.
+
+ When paging is enabled, a 32-bit linear address is treated by the CPU's memory management Unit(MMU) as a trple=[pageDir,pageTable,offset]
+
+ PageDir refers to an entry in a level-1 page table, pageTab;e refers to an entry in leve;-2 page table and offset is the relative address in the page. 
+
+ Normal page size is 4KB.
+With Page Size Extension(PSE), some x86 CPUs also support page size of 4MB. 
+When using paging the MMU first uses the control register CR3 to locate the page directory, 
+which is the level-1 page table
+
+Each page table entry has the format 
+    P = 1 if page is preset; 0 if not;
+    R/W = read(0) or write(1);
+    U/S = user(1)/ system(0);
+    PWT =page write transparent
+    PCD = PAGE CACHE DISABLE 
+    A(1) - accessed 
+    D(1) - dirty or modified 
+    AVIAL - available for systems programmer use
+
+
+ADDRESS TRANSLATION 
+CPU'S CR3 points to level-1 page table. Given a linear address, the MMU first uses the 10-bit pageDIR 
+to locate an entry in the level-1 page table. Assume the directory page table entry is present and the access checking is OK.
+iT USESS THE 20-BOT PAGE FRAME ADDRESS OF THE page table entry in thr level-2 page table.
+
+Then it uses the 10-bit pageTable to locate the entry in the level-2 page table.
+
+Assuming that the page entry is present and access checking is OK also. 
+The level-2 page table entry contains the page frame address in memory/
+The final physical address is PA =(page frame address << 12) + offset. 
+
+Since paging usually relies on the flat segment model, protectioon by checking the segment limits no longer makes sense.
+With paging protection is enforced by the individual page entries. 
+
+A page is either presnt or not any attempt to access a non-present page generates a page fault. 
+
+In addition a page can be marked as a read-only page also generated a page fault. 
+
+The access(A) and dirty(D) bits can be used to implement page replacement in demand paging.
+
+TRANSLATION LOOKASIDE BUFFER(TLB )
+The CPU stores the most recent used page table entries in an internal cache. 
+<ost paging is performed by using the contents of the tlb. 
+Whenever page tables are changed, the OS kernel must flush the TLB to prevent it from using o;d page entries in the TLB.
+Flushing the TLB can be done by reloading the CR3 control register. 
+Individual entries can be flushed by th INVPLG instruction.
+
+FULL PAGING 
+All pages of a process image are allocated physical page frames at once. 
+After loading a process image into page frames, the pages are always present. The full paging scheme can be either static or dynamic, deopending on how page frames are allocated.
+
+In static paging, each image is allocated a single piece of contiguos physical memory aligned to the page boundary.
+
+The memory area is divided into a sequence of page frames, which are used as page table entries.
+
+The main advantage of static paging is that it is extremetly easy to implement.
+First,process images can be divided as variable-sized partitions by a simple first-fit algorithm. 
+Second, it is very easy to construct the page tables since all the page frames are contiguous.
+
+In Dynamic paging, the pages of an image are allocated dynamically.
+The advantage of this scheme is that an image can be loaded to any available page frames, which do not have to be contiguous.
+
+DEMAND PAGING 
+the page tables of a process image are built by the image size, but not alll the pages are allocated page frames.
+The pages which do not have page frames are marked as not present. 
+
+The frame address in an absent page table entry may point to its location in a physical device.
+e.g. blobk number in a swap disk containing the page image. 
+
+During execution, when a process attempts to reference a page that is not present, generates a page fault, which   traps the OS kernel.
+
+The OS kernel's page fualt handler can allocate a page frame for the page, load the missing page into the page frame andchange the age table entry to present.
+
+Then it lests the process continue with the valid page entry. 
+
+Demand-paging is the basis of virtual memory, in which the virtual address space of a process can be much largerr than the physical
+memory allocated to it. 
+
+INTERRUPT AND EXCEPTION PROCESSING 
+
+The first 32 interrupt vectors are reserved for exceptions.
+
+The exception vectors overlap with the traditional interrupt vectors IRQ0 to IRQ7 (0x08 to 0x0F)
+The IRQ vectors must be remapped to different locations.
+
+Second, the exception vectors are no longer in the low 1 KB 
+memory ad in real mode. Instad, they are defined as interrupt descriptors in an Interrupt Descriptor Table(IDT)
+0x00  -  Divide error 
+0x01  - Singel step / debug exception 
+0x02  -  Non-maskable interrupt 
+0x03 - Breakpoint by INT3 instruction 
+0x04  -  overflow
+0x05 - Bounds check 
+0x06 - Invaid opcode 
+0x07 -  CCoprocessor not available 
+0x08 - Double fault 
+0x09 - Coprocesror Segment overrun '
+0x0A - Invalid TSS 
+0x0B - Segment not present
+0x0C - Stack exception
+0x0D -  General protection violation 
+0x10 Coprocessor error
+0x11 - 0x1F (Reserved)
+
+INTERRUPT DESCRIPTOR TABLE (IDT)
+Is a data structure containing interrupt and trap gates. 
+it's pointed to by the CPU'S IDTR register. 
+The IDT contents are essentially descriptors but Intel chooses to call the interrupt or trap gates.
+
+The amount of data loaded onto the LIDT differs in 32-bit and 64-bit modes,
+offset is 4 bytes in 32-bit mode and 8-bytes lomg in 64-bit mode.
+
+IDT is similar to GDT except:
+    There fIrst entry(at zero offset ) is used in the IDT.
+    There are 256 interrupt vectors so the IDT should have 256 entrirs, each entry corresponding to a specific interrupt vector.
+    Although the IDT can contain more than 256 entries, they are ignored 
+    Although the IDT can contain less than 256 entries, any entries that are not present will generate a General Protection Fault when an attemt to access 
+    them is made. Ideally the IDT should contain enough entries so that tjis fault can be handled.
+
+TABLE 
+On 32-bit processors,the entries in the IDT are 8-bytes long.
+
+The corresponding entry for a given interrupt vector is pointed to in memory by scaling the vector by 8 and adding it to the values in the offset field of the ODTR
+
+
+P - present bit 
+pL - privilege bit 
+TYPE - 1110 for interrupt gates and 1111 for trap gates. 
+
+The difference between them is that invoking the interrupt gate automatically disables interrupts but invoking a trap gate does not.
+Since interrupts and exceptions are processed in kernel mode, the privilege level should be set to 00.
+
+It can be set to 11 to allow user mode programs to handle software generated by interrupts. 
+prototypes for interrupt and trap gates 
+
+u64 int_gate = 0x00008E0000080000; // int gate (E), seg(08) = Kcode
+u64 exe_gate =  0x00008F000008000; // trap gate(F), seg(08)  = Kcode
+
+The address fields of th IDT gates can be set to point to the entry points of diferent exception and interrupt handler functions
+in the kernel code segment. 
+
+in addition to interrupt and trap gates, the IDT may also contain call gates and task gates.
+
+Calling a task or interrupt gate may trigger a task to switch by hardware.
+
+Hardware task switch is only supported in 32-bit CPUs. 
+
+TSS to define the process kernle mode stack.
+
+
+TASK STATE SEGMENT(TSS)
+the fields from eip to gs are saved CPU registers during harware task switch.
+The most important fields are esp0 and ss0, which define the CPU's interrupt stack. 
+When an interrupt or exception occurs, The CPU automatically uses [ss0;esp0] as the interrupt stack.
+
+Therefore, [ss0:esp0] must pount to the kernel mode stack of the current running process.
+
+TSS and process Interrupt Stack 
+
+Assume that the CPU is executing a process in user mode. 
+At this moment, the process kernel mode stack is empty.
+The CPU's TR register points to a TSS selector in the GDT, wwhich points to the process TSS,
+ in which [ss0;esp0] points to the (high end of)
+the process kernel stack.
+
+When an interrupt occurs the CPU saves the uSS, uSP , uflags, UCS , ueip into the interrupt Stack.
+
+prefix u denotes user mode registers and the saved uSS, uesp are user mode stack at the point of interruption.
+
+If an exception occurs in user mode, the situation is exactly the same, except that for some exceptions the CPU also pushes an error number, err#, onto the interrupt stack, which becomes 
+
+While in kernel mode, if another interrupt or exception occurs, the CPU continues to use the same interrupt satck to push one more layer of interrupted context. 
+if the CPU is already in kernel mode , re-enter kernl mode does not invilve privilege change. 
+
+In this case the saved context only has the kernel mode |kflags|kCS|keip|
+
+When return from an interrupt/ exception handler, the iret operation supports several different types of actions in general. 
+
+Iret checks the CPLs of the current and the next code segment. 
+Ist the CPLs are the same .i.e from the kernel back to the kernel, it only pops the savedkernel mode registers[keip, kCS, kflags].
+
+if the CPL of the next segement is greater .i.e from kernel back to the user mode, it pops the saved user mode registers , which include the saved uesp and uSS.
+
+if the same CPL means the same execution environment thus there is no need for popping the user mode segment registers since they are the same to the next CPL.
+However if the CPL is less then the iret has to pop out both the user mode registers 
+
+PROCESS KERNEL STACK IN PROTECTED MODE 
+
+1. Context switching. As in real mode, context switching in protected mode MTX is also by tswicth()
+2. Entry and exit code of interrupt handlers: As in real mode the entry points of interrupt handlers, 
+including system call are also defined by an INT macro, 
+        When the interrupt handler finishes, it issues EOI and returns to execute the ireturn/goUmode code.
+        If the interrupt occured in kernel mode, the process restures saved CPU registers and IRET back to the poiny of interruption directly. 
+
+        Otherwise, it handles signal first and may switch process before returning to user mode.
+
+        As in real mode we use Proc.inkmode counter to keep track of the number of times a process enters the kernel mode. 
+        In real mode, when a processs issues a system call, the CPU save [uflag, uCS, uPC] in the process user mode stack.
+
+        The entry code of the interrupt handler , int80h(), continues to save other CPU registers, also in user mode by the interrupt satck frame in the user mode stack.
+        When the system call handler finishes,the process returns to user mode by the interrupt stack frame in the user mode stack.
+
+        The situation changes only slightly in protected mode. Instead of the user mode , all the stack frames are in the process kernel mode stack.
+
+        while in the kernel mode, if the process gives up CPU by calling tswitch(), it adds a resume stack frame to the top of the process kernel stack. 
+        Therefore, to let a process return to user mode immediately when it resumes running, we can set up its kernel stack to contain two frames; an interrupt stack frame; followed by a resume stack frame.
+
+In summary , for protectde mode we must set up th GDT, remap IRQ vectprs. install interrupt and exception handlers in the IDT and define CPU'S interrupt stack contents by a TSSS in the GDT.
+
+As in real mode knowing the kernel mode stack contents is essential to understanding how to set up process for execution in protected mode.
+

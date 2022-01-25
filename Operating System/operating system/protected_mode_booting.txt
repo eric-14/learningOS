@@ -1,0 +1,13 @@
+Hd-booter:
+    During booting the hd-booter loadds BOOT + SETUP to 0x90000,
+    APentry to 0x91000 and the MTX kernel to 0x10000. It also writes some boot parameters, such as Time-of-day(TOD)
+    of BIOS, the boot device number and the start sector of the booter. 
+
+    To the BOOT sector for the kernel to use. 
+    Then it checks the boot signature at the end of the BOOT sector. 
+    RR -  It jumps to 0x10000 to run MTX in 16-bit real mode. 
+    PP - It jumps to 0x90200 to run SETUP, which brings up MTX in 32-bit mode.
+
+SETUP - is a piece of 16-bit and 32-bit mode code in GCC assembly. It sets up an Intial GDT containing 4GB code and data segments and enters protected mode. 
+    then it moves the MTX kernel to 1MB(0x1000) and jumps to the entry address of the MTX kernel.
+    

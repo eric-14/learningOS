@@ -1,0 +1,27 @@
+In order to speed up the paging translation process,the CPU stores the most recently used page table entries in an internal cache, called the Translation lookaside Buffer(TLB)
+
+Whenevr the page tables are changed, the OS kernel must flush the TLB to prevent it from using old page entries in the TLB.
+
+Flushing th TLB can b done by reloading the CR3 control register.
+
+Individual entries can be flushed by the INVPLG instruction 
+
+FULL PAGING 
+All pages of a process are allocated physical page frames.
+After loading the process image into page frames the pages are always present.
+
+In static paging each image is allocated a single piece if contiguos physical memory aligned to a page boundary.
+The memory area is divided into a sequence of page frames which are used as page table entries.
+Static paging is very easy to implement. Process images can be managed as variable-sized partitions by the simplest first-fit algorithm.
+it is also very easy to construct the page tables since all the page frames are contiguos.
+
+DEMAND PAGING 
+
+The page tables of a process image are built by the image size, but not all the pages are allocated page frames.
+This is th basis of virtual memory. Virtual memory can be bigger than the actual memory.
+
+INTERRUPT HANDLING 
+
+The first 32 interrupt vectors are reserved for exceptions 
+The exception are no longer in the low 1KB MEMORRY area as in real mode.
+Instead they are defined as interrupt descriptors in an interrupt descriptor table

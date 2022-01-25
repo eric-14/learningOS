@@ -1,0 +1,23 @@
+System calls are divide into four groups.
+Group 1 to group 3 are identical to Unix/linux system calls.The only exception is exec - used when a user enters a command line 
+
+The entire command line is used in the exec system call but it passes the entire command lune to the new image wehn execution starts.
+Parsing the command line into argc and argv is done by the startup code,crt0, in the new image.
+
+The function main0() is in crt0.c, which is precompiled and installed in a mtxlib for linking.
+
+main0.c(cjar *cmdLine){
+    //parse cmdline as argv[0],argv[1],...,argv[n]
+
+    //int argc = |<----------argc------------|
+
+    main(argc,argv); //call main(), passing argc and argv
+
+}
+
+the main.c file. As usual, every user mode program can be written as 
+#include "ucode.c"  //system call interface functions
+
+main(int argc,char *argv[]){
+    //main function of C program
+}
